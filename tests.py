@@ -78,3 +78,9 @@ def test_capacity_zero_all_waitlisted_and_promotion_never_happens():
     # Cancel unknown should raise NotFound
     with pytest.raises(NotFound):
         er.cancel("missing")
+
+
+
+#################################################################################
+# Add your own additional tests here to cover more cases and edge cases as needed.
+#################################################################################
