@@ -1,5 +1,5 @@
-## Student Name:
-## Student ID:
+## Student Name: Uzma Alam
+## Student ID: 219159771
 
 """
 Task B: Event Registration with Waitlist (Stub)
@@ -93,7 +93,18 @@ class EventRegistration:
             DuplicateRequest if user already exists (registered or waitlisted)
         """
         # TODO: Implement per lab handout
-        raise NotImplementedError("register not implemented yet")
+        self._validate_user_id(user_id)
+        if user_id in self._index:
+            raise DuplicateRequest(f"User {user_id} is already registered or waitlisted")
+        if len(self._registered) < self._capacity:
+            self._registered.append(user_id)
+            self._index[user_id] = "registered"
+            return UserStatus(state="registered")
+        else:
+            self._waitlist.append(user_id)
+            self._index[user_id] = "waitlisted"
+            return UserStatus(state="waitlisted", position=len(self._waitlist))
+        #raise NotImplementedError("register not implemented yet")
 
     def cancel(self, user_id: str) -> None:
         """
@@ -106,7 +117,19 @@ class EventRegistration:
             NotFound (if required by handout)
         """
         # TODO: Implement per lab handout
-        raise NotImplementedError("cancel not implemented yet")
+        self._validate_user_id(user_id)
+        if user_id not in self._index:
+            raise NotFound(f"User {user_id} not found for cancellation")
+        state = self._index.pop(user_id)
+        if state == "registered":
+            self._registered.remove(user_id)
+            if self._waitlist:
+                promoted_user = self._waitlist.pop(0)
+                self._registered.append(promoted_user)
+                self._index[promoted_user] = "registered"
+        elif state == "waitlisted":
+            self._waitlist.remove(user_id)
+        #raise NotImplementedError("cancel not implemented yet")
 
     def status(self, user_id: str) -> UserStatus:
         """
@@ -116,7 +139,16 @@ class EventRegistration:
           - none
         """
         # TODO: Implement per lab handout
-        raise NotImplementedError("status not implemented yet")
+        self._validate_user_id(user_id)
+        if user_id not in self._index:
+            return UserStatus(state="none")
+        state = self._index[user_id]
+        if state == "registered":
+            return UserStatus(state="registered")
+        elif state == "waitlisted":
+            position = self._waitlist.index(user_id) + 1
+            return UserStatus(state="waitlisted", position=position)
+        #raise NotImplementedError("status not implemented yet")
 
     def snapshot(self) -> dict:
         """
@@ -124,4 +156,25 @@ class EventRegistration:
         Return a deterministic snapshot of internal state.
         """
         # TODO: Implement if required/allowed
-        raise NotImplementedError("snapshot not implemented yet")
+        return {
+            "capacity": self._capacity,
+            "registered": list(self._registered),
+            "waitlist": list(self._waitlist),
+            "registered_count": len(self._registered),
+            "waitlist_count": len(self._waitlist),
+        }
+
+        #raise NotImplementedError("snapshot not implemented yet")
+    def _validate_user_id(self, user_id: str) -> None:
+        """Helper to validate user_id input."""
+        if not isinstance(user_id, str):
+            raise ValueError("user_id must be a string")
+        if not user_id:
+            raise ValueError("user_id cannot be empty")
+    
+    def promote(self) -> None:
+        """Helper to promote the earliest waitlisted user (if any)."""
+        if self._waitlist and len(self._registered) < self._capacity:
+            promoted_user = self._waitlist.pop(0)
+            self._registered.append(promoted_user)
+            self._index[promoted_user] = "registered"
