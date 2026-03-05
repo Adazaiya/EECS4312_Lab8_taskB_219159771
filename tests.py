@@ -84,3 +84,76 @@ def test_capacity_zero_all_waitlisted_and_promotion_never_happens():
 #################################################################################
 # Add your own additional tests here to cover more cases and edge cases as needed.
 #################################################################################
+
+def test_cancel_unknown_user_raises_not_found():
+    er = EventRegistration(capacity=1)
+    er.register("u1")
+    with pytest.raises(NotFound):
+        er.cancel("unknown_user")
+
+def test_invalid_user_id_raises_value_error():
+    er = EventRegistration(capacity=1)
+    with pytest.raises(ValueError):
+        er.register("")  # empty string
+    with pytest.raises(ValueError):
+        er.register("   ")  # whitespace only
+    with pytest.raises(ValueError):
+        er.register(None)  # None value
+    with pytest.raises(ValueError):
+        er.register(123)  # non-string value    
+
+def test_invalid_capacity_raises_value_error():
+    with pytest.raises(ValueError):
+        EventRegistration(capacity=-1)  # negative capacity
+    with pytest.raises(ValueError):
+        EventRegistration(capacity=2.5)  # non-integer capacity
+    with pytest.raises(ValueError):
+        EventRegistration(capacity="10")  # non-integer type
+    with pytest.raises(ValueError):
+        EventRegistration(capacity=True)  # boolean value
+
+def test_cancel_registered_user():
+    er = EventRegistration(capacity=2)
+    er.register("u1")
+    er.register("u2")
+    er.cancel("u1")
+    assert er.status("u1") == UserStatus("none")
+    assert er.status("u2") == UserStatus("registered")
+
+def test_cancel_waitlisted_user():
+    er = EventRegistration(capacity=1)
+    er.register("u1")
+    er.register("u2")  # waitlisted
+    er.cancel("u2")
+    assert er.status("u2") == UserStatus("none")
+    assert er.snapshot()["waitlist"] == []
+
+def test_promote_waitlisted_user_on_cancel():
+    er = EventRegistration(capacity=1)
+    er.register("u1")
+    er.register("u2")  # waitlisted
+    er.cancel("u1")  # should promote u2
+    assert er.status("u2") == UserStatus("registered")
+
+def test_cancel_nonexistent_user():
+    er = EventRegistration(capacity=1)
+    er.register("u1")
+    with pytest.raises(NotFound):
+        er.cancel("nonexistent_user")
+
+def test_status_of_nonexistent_user():
+    er = EventRegistration(capacity=1)
+    er.register("u1")
+    assert er.status("nonexistent_user") == UserStatus("none")
+
+def test_snapshot_consistency():
+    er = EventRegistration(capacity=2)
+    er.register("u1")
+    er.register("u2")
+    er.register("u3")  # waitlisted
+    snap = er.snapshot()
+    assert snap["capacity"] == 2
+    assert snap["registered"] == ["u1", "u2"]
+    assert snap["waitlist"] == ["u3"]
+    assert snap["registered_count"] == 2
+    assert snap["waitlist_count"] == 1

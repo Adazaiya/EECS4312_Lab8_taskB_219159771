@@ -73,13 +73,13 @@ class EventRegistration:
             capacity: maximum number of registered users (>= 0)
         """
         # TODO: Initialize internal data structures
-        if not isinstance(capacity, int) or isinstance(capacity, bool)
+        if not isinstance(capacity, int) or isinstance(capacity, bool):
             raise ValueError("Capacity must be a non-negative integer")
         if capacity < 0:
             raise ValueError("Capacity cannot be negative")
-        self.capacity = capacity
-        self.registered: List[str] = []
-        self.waitlist: List[str] = []
+        self._capacity = capacity
+        self._registered: List[str] = []
+        self._waitlist: List[str] = []
         self._index: dict = {}
         #raise NotImplementedError("EventRegistration.__init__ not implemented yet")
 
@@ -169,7 +169,7 @@ class EventRegistration:
         """Helper to validate user_id input."""
         if not isinstance(user_id, str):
             raise ValueError("user_id must be a string")
-        if not user_id:
+        if not user_id.strip():
             raise ValueError("user_id cannot be empty")
     
     def promote(self) -> None:
