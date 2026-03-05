@@ -73,7 +73,15 @@ class EventRegistration:
             capacity: maximum number of registered users (>= 0)
         """
         # TODO: Initialize internal data structures
-        raise NotImplementedError("EventRegistration.__init__ not implemented yet")
+        if not isinstance(capacity, int) or isinstance(capacity, bool)
+            raise ValueError("Capacity must be a non-negative integer")
+        if capacity < 0:
+            raise ValueError("Capacity cannot be negative")
+        self.capacity = capacity
+        self.registered: List[str] = []
+        self.waitlist: List[str] = []
+        self._index: dict = {}
+        #raise NotImplementedError("EventRegistration.__init__ not implemented yet")
 
     def register(self, user_id: str) -> UserStatus:
         """
