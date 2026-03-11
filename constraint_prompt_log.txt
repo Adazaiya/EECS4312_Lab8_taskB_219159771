@@ -1,0 +1,62 @@
+## Student Name: Uzma Alam
+## Student ID: 219159771
+## Lab 9 Constraint Prompt Log 
+
+This file logs any LLM prompts used while reading the personas and deriving
+system constraints. Per lab instructions, the persona-constraint table itself
+was written by the student; the LLM was only used for clarification.
+
+================================================================================
+Prompt 1: [Clarify testability of persona-derived constraints]
+================================================================================
+
+Purpose:
+  To verify whether constraints derived from Mo's pain point "not understanding
+  why the system changed or rejected an action" could be written in a testable,
+  precise form suitable for a requirement specification.
+
+Prompt text:
+  "I am deriving system constraints from a user persona called Mo Rodriguez.
+  Mo's pain point is: 'Not understanding why the system changed or rejected
+  an action.' I want to turn this into a testable system constraint. Is the
+  following constraint testable and precise?
+  C7: Every error condition shall raise a named, typed exception with a
+  descriptive message — no silent failures or bare returns are permitted.
+  Is this specific enough, or should I add more detail?"
+
+Response summary:
+  The model confirmed the constraint is testable and precise. It suggested
+  also specifying that the message should identify the user_id involved, which
+  would make verification in tests more concrete.
+
+Decision: MODIFY — updated C7 to require descriptive messages and updated
+  DuplicateRequest and NotFound exception messages in solution.py to include
+  the user_id and reason.
+
+================================================================================
+Prompt 2: [Check whether last_action satisfies Mo's transparency need]
+================================================================================
+
+Purpose:
+  To verify that adding a last_action field to snapshot() adequately addresses
+  Mo's need for "clear explanations when waitlist promotions occur."
+
+Prompt text:
+  "Mo Rodriguez needs clear explanations when the system promotes a user from
+  the waitlist. I am planning to add a last_action string field to the
+  snapshot() return dict. For example: 'cancelled u1; promoted u2 from waitlist'.
+  Is this approach sufficient to satisfy the transparency requirement, or should
+  I consider a more structured approach like a log list?"
+
+Response summary:
+  The model said a single last_action string is sufficient for a Python module
+  context. It noted that a list-based action log would be stronger for audit
+  trails but is out of scope for a single-operation system. The string approach
+  is acceptable and testable.
+
+Decision: ACCEPT — kept last_action as a single string in snapshot().
+  Added C9 and FR6 to requirements.txt accordingly.
+
+================================================================================
+END OF CONSTRAINT PROMPT LOG
+================================================================================
