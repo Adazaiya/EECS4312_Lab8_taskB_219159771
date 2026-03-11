@@ -81,7 +81,7 @@ class EventRegistration:
         self._registered: List[str] = []
         self._waitlist: List[str] = []
         self._index: dict = {}
-        #raise NotImplementedError("EventRegistration.__init__ not implemented yet")
+        self._last_action: str = "initialized"  # Lab 9: C9 transparency for Mo
 
     def register(self, user_id: str) -> UserStatus:
         """
@@ -99,12 +99,13 @@ class EventRegistration:
         if len(self._registered) < self._capacity:
             self._registered.append(user_id)
             self._index[user_id] = "registered"
+            self._last_action = f"registered {user_id}"  # Lab 9: C9
             return UserStatus(state="registered")
         else:
             self._waitlist.append(user_id)
             self._index[user_id] = "waitlisted"
+            self._last_action = f"waitlisted {user_id} at position {len(self._waitlist)}"  # Lab 9: C9
             return UserStatus(state="waitlisted", position=len(self._waitlist))
-        #raise NotImplementedError("register not implemented yet")
 
     def cancel(self, user_id: str) -> None:
         """
@@ -127,9 +128,12 @@ class EventRegistration:
                 promoted_user = self._waitlist.pop(0)
                 self._registered.append(promoted_user)
                 self._index[promoted_user] = "registered"
+                self._last_action = f"cancelled {user_id}; promoted {promoted_user} from waitlist"  # Lab 9: C9
+            else:
+                self._last_action = f"cancelled {user_id}; no waitlisted user to promote"  # Lab 9: C9
         elif state == "waitlisted":
             self._waitlist.remove(user_id)
-        #raise NotImplementedError("cancel not implemented yet")
+            self._last_action = f"cancelled waitlisted user {user_id}"  # Lab 9: C9
 
     def status(self, user_id: str) -> UserStatus:
         """
@@ -148,7 +152,6 @@ class EventRegistration:
         elif state == "waitlisted":
             position = self._waitlist.index(user_id) + 1
             return UserStatus(state="waitlisted", position=position)
-        #raise NotImplementedError("status not implemented yet")
 
     def snapshot(self) -> dict:
         """
@@ -162,16 +165,16 @@ class EventRegistration:
             "waitlist": list(self._waitlist),
             "registered_count": len(self._registered),
             "waitlist_count": len(self._waitlist),
+            "last_action": self._last_action,  # Lab 9: C9  Mo needs transparency
         }
 
-        #raise NotImplementedError("snapshot not implemented yet")
     def _validate_user_id(self, user_id: str) -> None:
         """Helper to validate user_id input."""
         if not isinstance(user_id, str):
             raise ValueError("user_id must be a string")
         if not user_id.strip():
             raise ValueError("user_id cannot be empty")
-    
+
     def promote(self) -> None:
         """Helper to promote the earliest waitlisted user (if any)."""
         if self._waitlist and len(self._registered) < self._capacity:
