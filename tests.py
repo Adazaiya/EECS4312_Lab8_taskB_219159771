@@ -114,7 +114,7 @@ def test_invalid_user_id_raises_value_error():
 
 
 def test_invalid_capacity_raises_value_error():
-    # Covers C1, AC8
+    # Covers C2, AC8
     with pytest.raises(ValueError):
         EventRegistration(capacity=-1)  
     with pytest.raises(ValueError):
