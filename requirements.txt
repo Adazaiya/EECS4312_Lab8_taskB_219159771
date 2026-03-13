@@ -1,0 +1,246 @@
+## Student Name: Uzma Alam
+## Student ID: 219159771
+
+## 1. Problem Understanding
+System purpose:
+  A Python module that manages registration for a single fixed-capacity event.
+  Users can register, be placed on a FIFO waitlist, cancel, and query their
+  status. The system supports both a busy primary user (Jane) who needs
+  automation and reliability, and an edge user (Mo) who needs explicit
+  feedback, deterministic behavior, and transparent error handling.
+
+Inputs to the system:
+  - capacity (int, >= 0): fixed maximum number of registered users
+  - user_id (str, non-empty, non-whitespace): unique identifier for each user
+  - method calls: register(user_id), cancel(user_id), status(user_id), snapshot()
+
+Outputs produced by the system:
+  - register() -> UserStatus(state, position) or raises DuplicateRequest
+  - cancel()   -> None or raises NotFound
+  - status()   -> UserStatus(state, position)
+  - snapshot() -> dict with capacity, registered, waitlist, counts, last_action
+
+Primary goal of the system:
+  Ensure fair, predictable, and transparent event registration with automatic
+  waitlist promotion, duplicate prevention, and explicit error signalling,
+  supporting both low-friction automation (Jane) and explainability (Mo).
+
+
+## 2. Assumptions
+A1: The system is single-threaded. Rapid consecutive operations are sequential.
+A2: user_id comparison is case-sensitive ("Alice" != "alice").
+A3: The waitlist has no maximum size.
+A4: capacity is immutable after initialization.
+A5: A cancelled user has no record and may re-register as a new arrival.
+A6: Boolean values (True/False) are rejected as invalid capacity inputs.
+A7: All operations complete atomically — no partial state changes occur.
+A8: The system does not persist state across process restarts.
+
+
+## 3. Functional Requirements
+FR1: The system shall register users in arrival order until capacity is reached,
+     then place subsequent users on a FIFO waitlist.
+     Derived from constraint C1 (Jane – predictable ordering).
+
+FR2: When a registered user cancels, the system shall automatically promote the
+     earliest waitlisted user to registered status without requiring user action.
+     Derived from constraint C5 (Jane – automatic conflict resolution).
+
+FR3: The system shall raise DuplicateRequest with a descriptive message that
+     includes the user_id and their current state when a user attempts to
+     register while already registered or waitlisted.
+     Derived from constraint C7 (Mo – no silent failures).
+
+FR4: The system shall raise NotFound with a descriptive message that includes
+     the user_id and a human-readable explanation when cancel() is called for
+     a user not present in the system.
+     Derived from constraint C7 (Mo – explicit error handling).
+
+FR5: The system shall return a UserStatus object with a 1-based waitlist
+     position on every register() or status() call for waitlisted users.
+     Derived from constraint C5 (Mo – clear explanations of system decisions).
+
+FR6: The system shall record a last_action field in snapshot() describing the
+     most recent operation performed, including whether a promotion occurred.
+     Derived from constraint C9 (Mo – transparency about system decisions).
+
+FR7: The system shall behave identically (deterministically) across repeated
+     identical sequences of operations.
+     Derived from constraint C6 (Jane – predictable and stable behavior).
+
+FR8: If capacity is zero, all register() calls shall place users on the
+     waitlist and no promotion shall ever occur.
+     Derived from constraint C8 (Mo – explicit edge case handling).
+
+FR9: When a waitlisted user cancels, the system shall remove them without
+     triggering any promotion.
+     Derived from constraint C5 (Jane – predictable ordering).
+
+FR10: A user who cancels may re-register and shall be treated as a brand new
+      arrival with no priority advantage.
+      Derived from constraint C3 (Jane – no duplicate system messages).
+
+
+## 4. System Constraints
+C1: The number of registered users shall never exceed capacity at any time.
+    Derived from persona attribute: Jane – Need: predictable, stable ordering.
+
+C2: user_id must be a non-empty, non-whitespace string; any other value raises
+    ValueError before any state is modified.
+    Derived from persona attribute: Mo – Pain point: silent failures on invalid input.
+
+C3: A user may not appear more than once across the entire system.
+    Derived from persona attribute: Jane – Pain point: duplicate system messages.
+
+C4: A user may not simultaneously exist in both registered and waitlist states.
+    Derived from persona attribute: Jane – Pain point: inconsistent behavior.
+
+C5: Waitlist ordering shall preserve strict FIFO; the earliest arrival is always
+    promoted first.
+    Derived from persona attribute: Jane – Need: predictable ordering.
+
+C6: Promotion is fully deterministic — identical operation sequences produce
+    identical outcomes on any two independent instances.
+    Derived from persona attribute: Mo – Need: deterministic behavior under ties.
+
+C7: Every error condition shall raise a named, typed exception with a descriptive
+    message — no silent failures or bare returns are permitted.
+    Derived from persona attribute: Mo – Pain point: not understanding why the
+    system rejected an action; silent failures.
+
+C8: The system state shall remain fully consistent after every operation,
+    including after exceptions are raised.
+    Derived from persona attribute: Mo – Need: consistent behavior across
+    repeated or boundary scenarios.
+
+C9: The snapshot() method shall include a last_action field describing the most
+    recent operation in human-readable form, including any promotion outcome.
+    Derived from persona attribute: Mo – Need: clear explanation when waitlist
+    promotions occur.
+
+C10: Each operation shall trigger at most one state-change outcome — a single
+     cancel produces at most one promotion.
+     Derived from persona attribute: Jane – Pain point: too many notifications.
+
+---
+
+## 5. Acceptance Criteria
+AC1: Given capacity > 0 and slots available, when register(user_id) is called,
+     then UserStatus(state="registered") is returned and registered_count
+     increases by 1.
+     Linked: C1, C3, C4
+
+AC2: Given the event is full, when register(user_id) is called, then
+     UserStatus(state="waitlisted", position=N) is returned with correct
+     1-based N, and registered_count remains equal to capacity.
+     Linked: C1, C5
+
+AC3: Given a registered user cancels, when cancel(user_id) is called, then the
+     earliest waitlisted user is promoted, snapshot() last_action reflects the
+     promotion, and registered_count does not decrease.
+     Linked: C1, C5, C6, C9
+
+AC4: Given a waitlisted user cancels, when cancel(user_id) is called, then the
+     user is removed, no promotion occurs, and registered_count is unchanged.
+     Linked: C5, C8
+
+AC5: Given a duplicate register attempt, when register(user_id) is called again,
+     then DuplicateRequest is raised and system state is unchanged.
+     Linked: C3, C4, C7
+
+AC6: Given capacity = 0, when register(user_id) is called, then
+     UserStatus(state="waitlisted", position=N) is returned and
+     registered_count remains 0.
+     Linked: C1, C8
+
+AC7: Given cancel() is called for a user not in the system, then NotFound is
+     raised with a descriptive message and system state is unchanged.
+     Linked: C7, C8
+
+AC8: Given an invalid user_id (empty, whitespace, None, non-string), when any
+     method is called, then ValueError is raised and state is not modified.
+     Linked: C2, C7
+
+AC9: Given any operation completes, when snapshot() is called, then last_action
+     describes the operation just performed in human-readable form.
+     Linked: C9
+
+AC10: Given identical operation sequences on two independent instances, when
+      promotions occur, then both instances produce identical registered lists
+      and waitlists at every step.
+      Linked: C6
+
+
+
+## 6. Edge Cases
+EC1: Capacity = 0
+     Expected system behavior: All register() calls place users on the waitlist.
+     No promotion ever occurs. registered list remains permanently empty.
+     Cancelling a waitlisted user does not promote anyone.
+     Derived from: Mo – explicitly handle edge cases instead of silent failure.
+
+EC2: Duplicate cancellation (cancel a user who already cancelled)
+     Expected system behavior: NotFound is raised with a descriptive message.
+     System state is not modified. No silent drop of the request.
+     Derived from: Mo – no silent failures, explicit error messages.
+
+EC3: Waitlisted user cancels before promotion
+     Expected system behavior: User is removed from waitlist. Remaining users
+     shift forward maintaining FIFO order. No promotion is triggered.
+     Derived from: Mo – consistent behavior across boundary scenarios.
+
+EC4: Re-registration after cancellation when event is full
+     Expected system behavior: Cancelled user re-registers as a new arrival at
+     the rear of the waitlist with no priority advantage.
+     Derived from: Jane – predictable and stable ordering.
+
+EC5: Multiple sequential cancellations
+     Expected system behavior: Each cancellation promotes exactly one waitlisted
+     user in FIFO order. snapshot() last_action reflects each promotion.
+     Derived from: Jane – automatic handling, no manual intervention needed.
+
+EC6: Boolean or non-integer capacity
+     Expected system behavior: ValueError is raised at initialization. No system
+     object is created. True and False are explicitly rejected.
+     Derived from: Mo – explicit edge case handling instead of silent failure.
+
+
+
+## 7. Traceability
+FR1 → C1, C5 → AC1, AC2
+FR2 → C1, C5, C6, C9 → AC3
+FR3 → C3, C7 → AC5
+FR4 → C7, C8 → AC7
+FR5 → C5 → AC2, AC3
+FR6 → C9 → AC9
+FR7 → C6 → AC10
+FR8 → C1, C8 → AC6
+FR9 → C5, C8 → AC4
+FR10 → C3, C5 → AC1
+
+
+
+## Revision Notes
+
+Revision Note 1
+Requirement updated: FR6 / C9 – Added last_action field to snapshot()
+Reason: During LLM requirement review the model identified that Mo's need
+for clear explanations when promotions occur was not addressed by any
+existing requirement. The Lab 8 snapshot() had no way to communicate what
+the system just did.
+Action: Added FR6 and C9 requiring last_action in snapshot().
+Triggered by: LLM feedback during Task 6 requirement review.
+
+Revision Note 2
+Requirement updated: C10 – One state-change signal per operation
+Reason: Jane's pain point of receiving too many notifications was not
+captured as a testable constraint.
+Action: Added C10 limiting state-change signals to one per operation.
+Triggered by: Student analysis during persona constraint derivation.
+
+Revision Note 3
+Requirement updated: EC6 – Boolean capacity rejection
+Reason: Testing revealed that True and False pass isinstance(x, int) checks
+in Python, allowing invalid boolean capacity values to be silently accepted.
+Action: Added explicit boolean rejection in __init__ validation and added EC6.
+Triggered by: Test failure in test_invalid_capacity_raises_value_error.
