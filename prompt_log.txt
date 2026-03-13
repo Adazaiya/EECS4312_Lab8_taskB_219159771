@@ -1,232 +1,176 @@
 ## Student Name: Uzma Alam
 ## Student ID: 219159771
+## Lab 9 – Prompt Log
 
 ================================================================================
-PROMPT LOG - EECS 4312 Lab 8: Vibe Coding
-Event Registration with Waitlist System
-================================================================================
 
-This file contains the complete transcript of all LLM prompts and responses
-used during the implementation of this lab. Each entry includes:
-  - Purpose of the prompt
-  - Full prompt text
-  - Summary of the response
-  - Decision: ACCEPT / MODIFY / REJECT
+Prompt 1:
+I am building an Event Registration with Waitlist system in Python. The system
+manages registration for a single fixed-capacity event. It must register users
+until capacity is reached, place additional users on a FIFO waitlist, and
+automatically promote the earliest waitlisted user when a registered user cancels.
 
-================================================================================
-Prompt #1
-================================================================================
+The system has two personas:
+- Jane: a busy professional who needs automatic conflict resolution, predictable
+  ordering, and minimal interruptions. She is frustrated by duplicate notifications
+  and inconsistent behavior.
+- Mo: a user with accessibility needs who requires explicit, descriptive feedback
+  for every system action, deterministic behavior under all conditions, and clear
+  explanations when the system promotes or rejects a user.
 
-PURPOSE: Provide full requirements to the LLM and ask for ambiguity check
-         before any code generation begins.
+Constraints derived from the personas:
+- C1: registered count must never exceed capacity
+- C2: user_id must be a non-empty, non-whitespace string
+- C3: a user may not appear more than once in the system
+- C4: a user may not exist in both registered and waitlist states simultaneously
+- C5: waitlist must preserve strict FIFO ordering
+- C6: promotion must be fully deterministic
+- C7: every error must raise a named typed exception with a descriptive message
+- C8: system state must remain consistent after every operation
+- C9: snapshot() must include a last_action field describing the most recent operation
+- C10: each operation must trigger at most one state-change outcome
 
-PROMPT:
-  I am building a Python module for an Event Registration with Waitlist system.
-  Please review my requirements below. Before generating any code, identify
-  any ambiguities or missing clarifications.
+Acceptance criteria:
+- AC1: register() returns UserStatus("registered") when slots are available
+- AC2: register() returns UserStatus("waitlisted", N) when event is full
+- AC3: cancel() promotes earliest waitlisted user and last_action reflects this
+- AC4: cancel() of waitlisted user removes them without triggering promotion
+- AC5: duplicate register raises DuplicateRequest, state unchanged
+- AC6: capacity=0 places all users on waitlist, registered_count stays 0
+- AC7: cancel() of unknown user raises NotFound with descriptive message
+- AC8: invalid user_id raises ValueError before any state is modified
+- AC9: snapshot() last_action describes the most recent operation
+- AC10: identical operation sequences produce identical outcomes
 
-  --- PROBLEM SUMMARY ---
-  A Python module that manages registration for a single event with a fixed
-  capacity. Users can register, be placed on a waitlist, cancel, and query
-  their status.
+Please review this specification and identify any missing constraints, ambiguous
+requirements, or unhandled edge cases. Do not generate code yet.
 
-  --- FUNCTIONAL REQUIREMENTS ---
-  FR-01: The system shall accept a fixed non-negative integer capacity at
-         initialization. If capacity is negative, raise a ValueError.
-  FR-02: The system shall register users in arrival order until the registered
-         list reaches the capacity limit.
-  FR-03: When the registered list is at capacity, additional users shall be
-         placed onto a FIFO waitlist.
-  FR-04: When a registered user cancels, the system shall automatically promote
-         the user at the front of the waitlist (if any) to registered status.
-  FR-05: When a waitlisted user cancels, the system shall remove them from the
-         waitlist without triggering promotion.
-  FR-06: The system shall raise DuplicateRequest if a user attempts to register
-         while already registered or waitlisted.
-  FR-07: Any user may query their current status: registered, waitlisted
-         (with 1-based position), or none.
-  FR-08: If capacity is zero, all users who attempt to register shall be placed
-         directly on the waitlist.
-  FR-09: Cancellation of a user not in the system shall raise NotFound.
+Response summary:
+The LLM identified the following issues:
+1. The last_action field was not present in the Lab 8 snapshot() — it needed to
+   be added as a new constraint (C9) to satisfy Mo's transparency need.
+2. The DuplicateRequest and NotFound exception messages were not descriptive
+   enough in Lab 8 — they needed to include the user_id and reason.
+3. The case where cancel() finds no waitlisted user to promote was not explicitly
+   handled in last_action — the LLM flagged this as an unhandled edge case.
+4. The LLM confirmed all other constraints were complete and unambiguous.
 
-  --- CONSTRAINTS ---
-  C-01: The number of registered users shall never exceed capacity.
-  C-02: user_id must be a non-empty, non-whitespace string.
-  C-03: A user may not appear more than once in the system.
-  C-04: A user may not simultaneously exist in both registered and waitlisted states.
-  C-05: Waitlist ordering shall preserve strict FIFO behavior.
-  C-06: Promotion is deterministic under identical operation sequences.
-  C-07: capacity is fixed at initialization and cannot change.
-  C-08: System state must remain consistent after every operation.
-
-  --- ACCEPTANCE CRITERIA ---
-  AC-01: Given capacity > 0 and slots available, when a user registers,
-         they appear in registered with state="registered".
-  AC-02: Given event is full, when a user registers, they are placed on
-         the waitlist with correct 1-based position.
-  AC-03: Given a registered user cancels, the earliest waitlisted user
-         is promoted to registered.
-  AC-04: Given a waitlisted user cancels, no promotion occurs.
-  AC-05: Given a duplicate register attempt, DuplicateRequest is raised.
-  AC-06: Given capacity=0, all registrations go to waitlist.
-  AC-07: Given a cancelled user re-registers, they enter at the rear of
-         the waitlist if full, or registered if slots are available.
-  AC-08: Given an invalid user_id, ValueError is raised.
-  AC-09: Given a cancel for unknown user, NotFound is raised.
-
-  Please list any ambiguities or missing information before writing any code.
-
---------------------------------------------------------------------------------
-RESPONSE SUMMARY:
-  The model identified the following ambiguities:
-
-  1. THREAD SAFETY: Does the system need to handle concurrent access?
-     -> RESOLVED: System is single-threaded. Rapid operations means sequential
-        calls in the same thread.
-
-  2. CASE SENSITIVITY: Is "Alice" the same user as "alice"?
-     -> RESOLVED: user_id comparison is case-sensitive.
-
-  3. MAX WAITLIST SIZE: Is there a limit to how many users can be waitlisted?
-     -> RESOLVED: No maximum waitlist size. Users may queue indefinitely.
-
-  4. RETURN TYPE OF cancel(): Should it return anything?
-     -> RESOLVED: cancel() returns None. All outcomes communicated via exceptions.
-
-  5. RE-REGISTRATION: Can a user re-register after cancelling?
-     -> RESOLVED: Yes, a cancelled user has no record and may re-register
-        as a new arrival.
-
-DECISION: ACCEPT — all ambiguities resolved. Proceeding to code generation.
-
---------------------------------------------------
+Decision: Accept — added C9, updated FR3 and FR4, added EC2 for duplicate
+cancellation, and documented all changes in Revision Notes.
 
 ================================================================================
-Prompt #2
-================================================================================
 
-PURPOSE: Request implementation of the EventRegistration class based on
-         the finalized requirements and resolved ambiguities.
+Prompt 2:
+Based on the reviewed specification above, please implement the EventRegistration
+class in Python. The implementation must follow this exact stub structure:
 
-PROMPT:
-  Thank you. All ambiguities are resolved. Please implement solution.py using
-  the following stub structure exactly:
+from dataclasses import dataclass
+from typing import List, Optional
 
-  - Keep original imports: from dataclasses import dataclass
-                           from typing import List, Optional
-  - Do not add any new imports.
-  - Keep DuplicateRequest, NotFound exceptions and UserStatus dataclass as-is.
-  - Implement EventRegistration with:
-      __init__(self, capacity: int) -> None
-      register(self, user_id: str) -> UserStatus
-      cancel(self, user_id: str) -> None
-      status(self, user_id: str) -> UserStatus
-      snapshot(self) -> dict
+class DuplicateRequest(Exception): pass
+class NotFound(Exception): pass
 
-  Internal data structures:
-  - List[str] for registered users (insertion order).
-  - List[str] for waitlist (index 0 = next to be promoted, use .pop(0)).
-  - dict for user_id -> "registered" | "waitlisted" (O(1) lookups).
+@dataclass(frozen=True)
+class UserStatus:
+    state: str
+    position: Optional[int] = None
 
-  Keep all TODO comments in place above each implementation.
-  Remove all raise NotImplementedError lines.
-  Enforce all constraints. Include a private _validate_user_id() helper
-  and a private _promote_next() helper.
+class EventRegistration:
+    def __init__(self, capacity: int) -> None
+    def register(self, user_id: str) -> UserStatus
+    def cancel(self, user_id: str) -> None
+    def status(self, user_id: str) -> UserStatus
+    def snapshot(self) -> dict
 
---------------------------------------------------------------------------------
-RESPONSE SUMMARY:
-  The model produced a complete implementation with:
-  - _validate_user_id() raising ValueError for empty/whitespace/non-string input.
-  - register() checking duplicates via _index, appending to _registered or
-    _waitlist, returning correct UserStatus with 1-based position.
-  - cancel() raising NotFound if user missing, popping from _index, removing
-    from _registered or _waitlist, calling _promote_next() only when registered
-    user cancels.
-  - status() returning UserStatus("none"), UserStatus("registered"), or
-    UserStatus("waitlisted", position) with correct 1-based index.
-  - snapshot() returning dict with capacity, registered, waitlist,
-    registered_count, waitlist_count.
-  - _promote_next() using .pop(0) on _waitlist and only promoting when
-    len(_registered) < _capacity.
+Requirements:
+- snapshot() must include a last_action field
+- Every error must raise a named typed exception with a descriptive message
+  including the user_id
+- last_action must be updated after every register() and cancel() call
+- last_action must explicitly state when no promotion occurred after cancel()
 
-DECISION: ACCEPT — implementation matched all requirements. Minor review
-          applied to confirm zero-capacity edge case handled correctly.
+Response summary:
+The LLM generated a complete implementation with all required methods. The
+last_action field was added to __init__, register(), cancel(), and snapshot().
+Exception messages included user_id and reason. The _validate_user_id() helper
+was preserved. The promote() helper was kept for reference.
 
---------------------------------------------------
+Decision: Accept — implementation matched all constraints and acceptance criteria.
 
 ================================================================================
-Prompt #3
-================================================================================
 
-PURPOSE: Verify zero-capacity behavior — confirm no promotion ever occurs
-         when capacity is 0.
+Prompt 3:
+My implementation raises DuplicateRequest and NotFound correctly, but I want to
+verify the last_action field is set correctly in all three cancel() branches:
+1. cancel() for a registered user with waitlisted users present
+2. cancel() for a registered user with no waitlisted users
+3. cancel() for a waitlisted user
 
-PROMPT:
-  With capacity=0, confirm what happens step by step:
-    1. register("u1") -> should go to waitlist
-    2. register("u2") -> should go to waitlist
-    3. cancel("u1")   -> u1 removed; should u2 be promoted?
+Please confirm the correct last_action message for each case.
 
-  The condition in _promote_next() is:
-    if self._waitlist and len(self._registered) < self._capacity
-  With capacity=0 this is: 0 < 0 -> False. Is this correct?
+Response summary:
+The LLM confirmed:
+1. "cancelled {user_id}; promoted {promoted_user} from waitlist"
+2. "cancelled {user_id}; no waitlisted user to promote"
+3. "cancelled waitlisted user {user_id}"
+All three cases were already implemented correctly.
 
---------------------------------------------------------------------------------
-RESPONSE SUMMARY:
-  Confirmed: 0 < 0 evaluates to False so _promote_next() never promotes
-  when capacity=0. u2 remains waitlisted after u1 cancels. registered list
-  stays empty permanently. This is correct per FR-08 and C-01.
-
-DECISION: ACCEPT — behavior confirmed correct. No code changes needed.
-
---------------------------------------------------
+Decision: Accept — no changes needed.
 
 ================================================================================
-Prompt #4
-================================================================================
 
-PURPOSE: Verify re-registration after cancellation joins rear of waitlist.
+Prompt 4:
+Please write executable tests for the EventRegistration system. The test suite must:
+- Include at least 5 tests
+- Include at least 2 tests covering edge cases derived from persona constraints
+- Each test must verify a specific acceptance criterion or constraint
+- Above each test include a comment in the format: # Covers C#, AC#
 
-PROMPT:
-  Trace this sequence with capacity=1:
-    register("u1") -> registered
-    register("u2") -> waitlisted pos 1
-    cancel("u1")   -> u2 promoted to registered
-    register("u1") -> where does u1 go?
+The edge cases to cover are:
+- EC1: capacity = 0, all users waitlisted, no promotion ever
+- EC2: duplicate cancellation raises NotFound
+- EC6: boolean or non-integer capacity raises ValueError
 
-  Since u2 is now registered and event is full, u1 should go to the waitlist
-  at position 1 (rear, since waitlist is empty). Confirm this is correct.
+Response summary:
+The LLM generated 15 tests covering all acceptance criteria and edge cases.
+Comments in the format # Covers C#, AC# were added above each test. Tests
+included last_action assertions for C9 and AC9. All 15 tests passed.
 
---------------------------------------------------------------------------------
-RESPONSE SUMMARY:
-  Confirmed: after cancel("u1"), _index has no entry for u1 so DuplicateRequest
-  is not raised. _registered = ["u2"], _waitlist = []. register("u1") sees
-  len(_registered)=1 which is not < _capacity=1, so u1 goes to _waitlist.
-  Returns UserStatus("waitlisted", position=1). Correct per AC-07 and C-05.
-
-DECISION: ACCEPT — behavior confirmed correct. No code changes needed.
-
---------------------------------------------------
+Decision: Accept — full test suite generated and verified.
 
 ================================================================================
-REVISION LOG
+
+Prompt 5:
+I need to verify the behavior when a registered user cancels and there are no
+waitlisted users. Specifically:
+1. Does last_action correctly say "no waitlisted user to promote"?
+2. Does registered_count decrease by 1?
+3. Is the system state still consistent after this operation?
+
+Response summary:
+The LLM confirmed:
+1. last_action is set to "cancelled {user_id}; no waitlisted user to promote"
+2. registered_count decreases by 1 since the user is removed and no one is promoted
+3. System state remains consistent — _index, _registered, and _waitlist are all
+   updated atomically before last_action is set.
+
+Decision: Accept — added test_cancel_registered_user to verify this behavior
+and assert "no waitlisted" in last_action.
+
 ================================================================================
 
-No requirement revisions were made after implementation began.
-All ambiguities were caught and resolved during Prompt #1 before any code
-was written.
+Prompt 6:
+My tests.py has 15 tests and all pass. I want to add one final test specifically
+for the last_action transparency constraint (C9, AC9) to make it explicit in the
+traceability. The test should:
+- Register a user
+- Waitlist a second user
+- Cancel the first user (triggering promotion)
+- Assert last_action contains both user ids
 
-================================================================================
-ASSUMPTIONS DOCUMENTED
-================================================================================
+Response summary:
+The LLM generated test_last_action_transparency which registers u1, waitlists u2,
+cancels u1, and asserts both "u1" and "u2" appear in snapshot()["last_action"].
+The test passed immediately.
 
-A-01: System is single-threaded. No concurrent access handling required.
-A-02: user_id comparison is case-sensitive ("Alice" != "alice").
-A-03: No maximum waitlist size. Waitlist grows unboundedly.
-A-04: capacity is immutable after __init__.
-A-05: cancel() returns None in all success cases; outcomes signalled via exceptions.
-A-06: A cancelled user has no record and may re-register as a new arrival.
-
-================================================================================
-END OF PROMPT LOG
-================================================================================
+Decision: Accept — added as the final test in tests.py.
